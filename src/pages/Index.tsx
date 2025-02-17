@@ -1,4 +1,5 @@
 
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { ServiceCard } from "@/components/dashboard/ServiceCard";
@@ -18,52 +19,62 @@ const services = [
     icon: Github,
     title: "GitHub",
     description: "Access your repositories and manage code",
+    route: "/github"
   },
   {
     icon: GitBranch,
     title: "CI/CD Pipeline",
     description: "Monitor and manage your GitHub Actions workflows",
+    route: "/cicd"
   },
   {
     icon: Container,
     title: "Docker",
     description: "Manage your containers and images",
+    route: "/docker"
   },
   {
     icon: Cloud,
     title: "GCP Cloud",
     description: "Access your Google Cloud Platform resources",
+    route: "/gcp"
   },
   {
     icon: Server,
     title: "GKE Cluster",
     description: "Manage your Kubernetes clusters",
+    route: "/gke"
   },
   {
     icon: Settings,
     title: "Settings",
     description: "Configure your dashboard preferences",
+    route: "/settings"
   },
   {
     icon: Video,
     title: "Teams Meeting",
     description: "Join or schedule team meetings",
+    route: "/teams"
   },
   {
     icon: Bell,
     title: "Notifications",
     description: "View your system notifications",
+    route: "/notifications"
   },
 ];
 
 const Index = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleServiceClick = (service: string) => {
+  const handleServiceClick = (service: string, route: string) => {
     toast({
       title: `${service} Selected`,
       description: `Opening ${service.toLowerCase()} interface...`,
     });
+    navigate(route);
   };
 
   return (
@@ -85,7 +96,7 @@ const Index = () => {
                 icon={service.icon}
                 title={service.title}
                 description={service.description}
-                onClick={() => handleServiceClick(service.title)}
+                onClick={() => handleServiceClick(service.title, service.route)}
                 className="animate-fade-in"
               />
             ))}
