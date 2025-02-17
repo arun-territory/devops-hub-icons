@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { GitHubService } from "@/services/github";
@@ -18,6 +18,15 @@ const GitHubPage = () => {
   const [token, setToken] = useState<string>("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  // Check for existing token on component mount
+  useEffect(() => {
+    const savedToken = localStorage.getItem("github_token");
+    if (savedToken) {
+      setToken(savedToken);
+      setIsAuthenticated(true);
+    }
+  }, []);
+
   const { data: repos, isLoading, error } = useQuery({
     queryKey: ["github-repos"],
     queryFn: async () => {
@@ -29,12 +38,23 @@ const GitHubPage = () => {
 
   const handleAuthenticate = () => {
     if (token) {
+      localStorage.setItem("github_token", token);
       setIsAuthenticated(true);
       toast({
         title: "GitHub Connected",
         description: "Successfully connected to GitHub",
       });
     }
+  };
+
+  const handleDisconnect = () => {
+    localStorage.removeItem("github_token");
+    setToken("");
+    setIsAuthenticated(false);
+    toast({
+      title: "GitHub Disconnected",
+      description: "Successfully disconnected from GitHub",
+    });
   };
 
   const formatDate = (dateString: string) => {
@@ -50,11 +70,21 @@ const GitHubPage = () => {
       <Sidebar />
       <main className="flex-1 p-8">
         <div className="max-w-7xl mx-auto">
-          <header className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">GitHub Integration</h1>
-            <p className="mt-2 text-gray-600">
-              Manage your repositories and monitor activity
-            </p>
+          <header className="mb-8 flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">GitHub Integration</h1>
+              <p className="mt-2 text-gray-600">
+                Manage your repositories and monitor activity
+              </p>
+            </div>
+            {isAuthenticated && (
+              <button
+                onClick={handleDisconnect}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Disconnect
+              </button>
+            )}
           </header>
 
           {!isAuthenticated ? (

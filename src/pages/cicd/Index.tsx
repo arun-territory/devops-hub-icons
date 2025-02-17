@@ -1,5 +1,6 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { GitHubService } from "@/services/github";
@@ -15,9 +16,24 @@ import {
 } from "lucide-react";
 
 const CICDPage = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [selectedRepo, setSelectedRepo] = useState<string>("");
-  const token = localStorage.getItem("github_token");
+  const [token, setToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    const savedToken = localStorage.getItem("github_token");
+    if (!savedToken) {
+      toast({
+        title: "GitHub Connection Required",
+        description: "Please connect your GitHub account first",
+        variant: "destructive",
+      });
+      navigate("/github");
+      return;
+    }
+    setToken(savedToken);
+  }, [navigate, toast]);
 
   const { data: repos } = useQuery({
     queryKey: ["github-repos"],
