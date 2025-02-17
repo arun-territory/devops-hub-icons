@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import GitHubPage from "./pages/github/Index";
+import CICDPage from "./pages/cicd/Index";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -19,6 +20,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/github" element={<GitHubPage />} />
+          <Route path="/cicd" element={<CICDPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

@@ -1,4 +1,3 @@
-
 export interface GitHubRepo {
   id: number;
   name: string;
@@ -29,5 +28,25 @@ export interface GitHubCommit {
     };
     message: string;
   };
+  html_url: string;
+}
+
+export interface WorkflowRun {
+  id: number;
+  name: string;
+  status: string;
+  conclusion: string | null;
+  head_branch: string;
+  created_at: string;
+  updated_at: string;
+  html_url: string;
+}
+
+export interface Workflow {
+  id: number;
+  name: string;
+  state: string;
+  created_at: string;
+  updated_at: string;
   html_url: string;
 }

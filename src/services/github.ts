@@ -1,5 +1,5 @@
 
-import { GitHubRepo, GitHubBranch, GitHubCommit } from "@/types/github";
+import { GitHubRepo, GitHubBranch, GitHubCommit, Workflow, WorkflowRun } from "@/types/github";
 
 const GITHUB_API_BASE = "https://api.github.com";
 
@@ -35,5 +35,13 @@ export class GitHubService {
 
   async getCommits(repo: string): Promise<GitHubCommit[]> {
     return this.fetch<GitHubCommit[]>(`/repos/${repo}/commits`);
+  }
+
+  async getWorkflows(repo: string): Promise<Workflow[]> {
+    return this.fetch<{ workflows: Workflow[] }>(`/repos/${repo}/actions/workflows`).then(res => res.workflows);
+  }
+
+  async getWorkflowRuns(repo: string): Promise<WorkflowRun[]> {
+    return this.fetch<{ workflow_runs: WorkflowRun[] }>(`/repos/${repo}/actions/runs`).then(res => res.workflow_runs);
   }
 }
