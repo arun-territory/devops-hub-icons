@@ -41,6 +41,7 @@ export interface WorkflowRun {
   created_at: string;
   updated_at: string;
   html_url: string;
+  workflow_id: number;
 }
 
 export interface Workflow {
@@ -53,6 +54,10 @@ export interface Workflow {
   path: string;
 }
 
+export interface WorkflowDispatch {
+  inputs: Record<string, WorkflowDispatchInput>;
+}
+
 export interface WorkflowDispatchInput {
   name: string;
   description?: string;
@@ -60,8 +65,4 @@ export interface WorkflowDispatchInput {
   default?: string;
   type: "string" | "number" | "boolean" | "choice";
   options?: string[];
-}
-
-export interface WorkflowDispatch {
-  inputs: Record<string, WorkflowDispatchInput>;
 }

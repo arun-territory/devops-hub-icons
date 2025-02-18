@@ -1,5 +1,5 @@
 
-import { GitHubRepo, GitHubBranch, GitHubCommit, Workflow, WorkflowRun, WorkflowDispatch } from "@/types/github";
+import { GitHubRepo, GitHubBranch, GitHubCommit, Workflow, WorkflowRun, WorkflowDispatch, WorkflowDispatchInput } from "@/types/github";
 
 const GITHUB_API_BASE = "https://api.github.com";
 
@@ -21,7 +21,13 @@ export class GitHubService {
     });
 
     if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.statusText}`);
+      const errorBody = await response.text();
+      console.error('GitHub API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorBody
+      });
+      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
     }
 
     return response.json();

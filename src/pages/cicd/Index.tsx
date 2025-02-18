@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -180,7 +179,7 @@ const CICDPage = () => {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => setSelectedWorkflowId(run.id)}
+                                  onClick={() => setSelectedWorkflowId(run.workflow_id)}
                                 >
                                   <Play className="h-4 w-4 mr-1" />
                                   Run
