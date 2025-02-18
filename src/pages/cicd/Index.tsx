@@ -14,12 +14,18 @@ import {
   ExternalLink,
   RefreshCw,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const CICDPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [selectedRepo, setSelectedRepo] = useState<string>("");
   const [token, setToken] = useState<string | null>(null);
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<number | null>(null);
+  const [workflowInputs, setWorkflowInputs] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const savedToken = localStorage.getItem("github_token");
@@ -52,6 +58,39 @@ const CICDPage = () => {
     },
     enabled: !!token && !!selectedRepo,
   });
+
+  const { data: workflowDispatch } = useQuery({
+    queryKey: ["workflow-dispatch", selectedRepo, selectedWorkflowId],
+    queryFn: async () => {
+      if (!selectedWorkflowId) return null;
+      const github = new GitHubService(token!);
+      return github.getWorkflowDispatch(selectedRepo, selectedWorkflowId);
+    },
+    enabled: !!token && !!selectedRepo && !!selectedWorkflowId,
+  });
+
+  const handleWorkflowDispatch = async () => {
+    if (!selectedWorkflowId || !token || !selectedRepo) return;
+    
+    try {
+      const github = new GitHubService(token);
+      await github.triggerWorkflow(selectedRepo, selectedWorkflowId, workflowInputs);
+      
+      toast({
+        title: "Workflow Triggered",
+        description: "The workflow has been successfully triggered",
+      });
+      
+      setSelectedWorkflowId(null);
+      setWorkflowInputs({});
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to trigger workflow",
+        variant: "destructive",
+      });
+    }
+  };
 
   const getStatusIcon = (status: string, conclusion: string | null) => {
     if (status === "in_progress") return <RefreshCw className="h-5 w-5 text-blue-500 animate-spin" />;
@@ -135,14 +174,60 @@ const CICDPage = () => {
                               </div>
                             </div>
                           </div>
-                          <a
-                            href={run.html_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-gray-500 hover:text-gray-700"
-                          >
-                            <ExternalLink className="h-5 w-5" />
-                          </a>
+                          <div className="flex items-center gap-2">
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setSelectedWorkflowId(run.id)}
+                                >
+                                  <Play className="h-4 w-4 mr-1" />
+                                  Run
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Run Workflow</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4 py-4">
+                                  {workflowDispatch?.inputs ? (
+                                    Object.entries(workflowDispatch.inputs).map(([name, input]) => (
+                                      <div key={name} className="space-y-2">
+                                        <Label htmlFor={name}>
+                                          {input.description || name}
+                                          {input.required && <span className="text-red-500 ml-1">*</span>}
+                                        </Label>
+                                        <Input
+                                          id={name}
+                                          placeholder={input.default || ''}
+                                          value={workflowInputs[name] || ''}
+                                          onChange={(e) => setWorkflowInputs(prev => ({
+                                            ...prev,
+                                            [name]: e.target.value
+                                          }))}
+                                          required={input.required}
+                                        />
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <p>No input parameters required</p>
+                                  )}
+                                  <Button onClick={handleWorkflowDispatch} className="w-full">
+                                    Run Workflow
+                                  </Button>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                            <a
+                              href={run.html_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-gray-500 hover:text-gray-700"
+                            >
+                              <ExternalLink className="h-5 w-5" />
+                            </a>
+                          </div>
                         </div>
                         <div className="mt-4 flex items-center gap-6 text-sm text-gray-500">
                           <div>Started: {formatDate(run.created_at)}</div>

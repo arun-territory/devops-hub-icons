@@ -49,4 +49,18 @@ export interface Workflow {
   created_at: string;
   updated_at: string;
   html_url: string;
+  path: string;
+}
+
+export interface WorkflowDispatchInput {
+  name: string;
+  description?: string;
+  required?: boolean;
+  default?: string;
+  type: "string" | "number" | "boolean" | "choice";
+  options?: string[];
+}
+
+export interface WorkflowDispatch {
+  inputs: Record<string, WorkflowDispatchInput>;
 }
