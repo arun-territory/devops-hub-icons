@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { RefreshCw } from "lucide-react";
 import { WorkflowRunCard } from "./components/WorkflowRunCard";
 import { RepositorySelect } from "./components/RepositorySelect";
+import { WorkflowDispatchPanel } from "./components/WorkflowDispatchPanel";
 
 const CICDPage = () => {
   const navigate = useNavigate();
@@ -73,6 +74,15 @@ const CICDPage = () => {
                 onRepoChange={setSelectedRepo}
               />
 
+              {selectedRepo && workflowRuns && workflowRuns.length > 0 && (
+                <WorkflowDispatchPanel
+                  selectedRepo={selectedRepo}
+                  token={token}
+                  workflowId={workflowRuns[0].workflow_id}
+                  workflowName={workflowRuns[0].name}
+                />
+              )}
+
               {selectedRepo && (
                 <div className="space-y-4">
                   {isLoading ? (
@@ -85,8 +95,6 @@ const CICDPage = () => {
                       <WorkflowRunCard
                         key={run.id}
                         run={run}
-                        token={token}
-                        selectedRepo={selectedRepo}
                       />
                     ))
                   )}
