@@ -85,6 +85,7 @@ export const WorkflowRunCard = ({ run, token, selectedRepo }: WorkflowRunCardPro
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Separate Run Workflow button with dialog */}
           <Dialog>
             <DialogTrigger asChild>
               <Button
@@ -93,42 +94,55 @@ export const WorkflowRunCard = ({ run, token, selectedRepo }: WorkflowRunCardPro
                 onClick={() => setSelectedWorkflowId(run.workflow_id)}
               >
                 <Play className="h-4 w-4 mr-1" />
-                Run
+                Run Workflow
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Run Workflow</DialogTitle>
+                <DialogTitle>Run Workflow: {run.name}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 {workflowDispatch?.inputs ? (
-                  Object.entries(workflowDispatch.inputs).map(([name, input]) => (
-                    <div key={name} className="space-y-2">
-                      <Label htmlFor={name}>
-                        {input.description || name}
-                        {input.required && <span className="text-red-500 ml-1">*</span>}
-                      </Label>
-                      <Input
-                        id={name}
-                        placeholder={input.default || ''}
-                        value={workflowInputs[name] || ''}
-                        onChange={(e) => setWorkflowInputs(prev => ({
-                          ...prev,
-                          [name]: e.target.value
-                        }))}
-                        required={input.required}
-                      />
+                  <>
+                    <div className="space-y-4">
+                      {Object.entries(workflowDispatch.inputs).map(([name, input]) => (
+                        <div key={name} className="space-y-2">
+                          <Label htmlFor={name}>
+                            {input.description || name}
+                            {input.required && <span className="text-red-500 ml-1">*</span>}
+                          </Label>
+                          <Input
+                            id={name}
+                            placeholder={input.default || ''}
+                            value={workflowInputs[name] || ''}
+                            onChange={(e) => setWorkflowInputs(prev => ({
+                              ...prev,
+                              [name]: e.target.value
+                            }))}
+                            required={input.required}
+                          />
+                        </div>
+                      ))}
                     </div>
-                  ))
+                    <Button onClick={handleWorkflowDispatch} className="w-full mt-4">
+                      Run Workflow
+                    </Button>
+                  </>
                 ) : (
-                  <p>No input parameters required</p>
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-600">
+                      This workflow has no input parameters.
+                    </p>
+                    <Button onClick={handleWorkflowDispatch} className="w-full">
+                      Run Workflow
+                    </Button>
+                  </div>
                 )}
-                <Button onClick={handleWorkflowDispatch} className="w-full">
-                  Run Workflow
-                </Button>
               </div>
             </DialogContent>
           </Dialog>
+          
+          {/* View run details link */}
           <a
             href={run.html_url}
             target="_blank"
