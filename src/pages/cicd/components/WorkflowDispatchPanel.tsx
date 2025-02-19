@@ -26,7 +26,21 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
     queryKey: ["workflow-dispatch", selectedRepo, workflowId],
     queryFn: async () => {
       const github = new GitHubService(token);
-      return github.getWorkflowDispatch(selectedRepo, workflowId);
+      const result = await github.getWorkflowDispatch(selectedRepo, workflowId);
+      console.log('Fetched workflow dispatch data:', result);
+      
+      // Initialize inputs with default values
+      if (result?.inputs) {
+        const defaultInputs = Object.entries(result.inputs).reduce((acc, [name, input]) => {
+          if (input.default) {
+            acc[name] = input.default;
+          }
+          return acc;
+        }, {} as Record<string, string>);
+        setWorkflowInputs(defaultInputs);
+      }
+      
+      return result;
     },
     enabled: !!workflowId && isOpen,
   });
@@ -73,11 +87,11 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
     if (input.type === 'choice' && input.options) {
       return (
         <Select
-          value={workflowInputs[name] || ''}
+          value={workflowInputs[name] || input.default || ''}
           onValueChange={(value) => setWorkflowInputs(prev => ({ ...prev, [name]: value }))}
         >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder={input.default || `Select ${name}`} />
+            <SelectValue placeholder={`Select ${name}`} />
           </SelectTrigger>
           <SelectContent>
             {input.options.map((option: string) => (
@@ -93,11 +107,11 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
     if (input.type === 'boolean') {
       return (
         <Select
-          value={workflowInputs[name] || ''}
+          value={workflowInputs[name] || input.default || ''}
           onValueChange={(value) => setWorkflowInputs(prev => ({ ...prev, [name]: value }))}
         >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder={input.default || 'Select true/false'} />
+            <SelectValue placeholder="Select true/false" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="true">true</SelectItem>
