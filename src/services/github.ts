@@ -1,4 +1,3 @@
-
 import { GitHubRepo, GitHubBranch, GitHubCommit, Workflow, WorkflowRun, WorkflowDispatch, WorkflowDispatchInput } from "@/types/github";
 
 const GITHUB_API_BASE = "https://api.github.com";
@@ -88,6 +87,12 @@ export class GitHubService {
         if (details.includes("type:")) {
           const typeMatch = details.match(/type:\s*(\w+)/);
           input.type = typeMatch?.[1] as WorkflowDispatchInput["type"];
+        }
+        if (details.includes("options:")) {
+          const optionsMatch = details.match(/options:\s*\[(.*?)\]/);
+          if (optionsMatch) {
+            input.options = optionsMatch[1].split(',').map(o => o.trim().replace(/['"]/g, ''));
+          }
         }
 
         inputs[name] = input;
