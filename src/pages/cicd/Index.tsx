@@ -7,13 +7,14 @@ import { GitHubService } from "@/services/github";
 import { useToast } from "@/hooks/use-toast";
 import { RefreshCw } from "lucide-react";
 import { WorkflowRunCard } from "./components/WorkflowRunCard";
-import { RepositorySelect } from "./components/RepositorySelect";
+import { WorkflowSelect } from "./components/WorkflowSelect";
 import { WorkflowDispatchPanel } from "./components/WorkflowDispatchPanel";
 
 const CICDPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [selectedRepo, setSelectedRepo] = useState<string>("");
+  const [selectedWorkflow, setSelectedWorkflow] = useState<string>("");
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
@@ -39,14 +40,30 @@ const CICDPage = () => {
     enabled: !!token,
   });
 
+  const { data: workflows } = useQuery({
+    queryKey: ["workflows", selectedRepo],
+    queryFn: async () => {
+      const github = new GitHubService(token!);
+      return github.getWorkflows(selectedRepo);
+    },
+    enabled: !!token && !!selectedRepo,
+  });
+
   const { data: workflowRuns, isLoading } = useQuery({
-    queryKey: ["workflow-runs", selectedRepo],
+    queryKey: ["workflow-runs", selectedRepo, selectedWorkflow],
     queryFn: async () => {
       const github = new GitHubService(token!);
       return github.getWorkflowRuns(selectedRepo);
     },
-    enabled: !!token && !!selectedRepo,
+    enabled: !!token && !!selectedRepo && !!selectedWorkflow,
   });
+
+  const handleRepoChange = (repo: string) => {
+    setSelectedRepo(repo);
+    setSelectedWorkflow("");
+  };
+
+  const selectedWorkflowData = workflows?.find(w => w.id.toString() === selectedWorkflow);
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -68,27 +85,30 @@ const CICDPage = () => {
             </div>
           ) : (
             <div className="space-y-6">
-              <RepositorySelect
+              <WorkflowSelect
                 repos={repos}
+                workflows={workflows}
                 selectedRepo={selectedRepo}
-                onRepoChange={setSelectedRepo}
+                selectedWorkflow={selectedWorkflow}
+                onRepoChange={handleRepoChange}
+                onWorkflowChange={setSelectedWorkflow}
               />
 
-              {selectedRepo && workflowRuns && workflowRuns.length > 0 && (
+              {selectedWorkflow && selectedWorkflowData && (
                 <WorkflowDispatchPanel
                   selectedRepo={selectedRepo}
                   token={token}
-                  workflowId={workflowRuns[0].workflow_id}
-                  workflowName={workflowRuns[0].name}
+                  workflowId={selectedWorkflowData.id}
+                  workflowName={selectedWorkflowData.name}
                 />
               )}
 
-              {selectedRepo && (
+              {selectedWorkflow && (
                 <div className="space-y-4">
                   {isLoading ? (
                     <div className="text-center py-8">
                       <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400" />
-                      <p className="mt-2 text-gray-600">Loading workflows...</p>
+                      <p className="mt-2 text-gray-600">Loading workflow runs...</p>
                     </div>
                   ) : (
                     workflowRuns?.map((run) => (
