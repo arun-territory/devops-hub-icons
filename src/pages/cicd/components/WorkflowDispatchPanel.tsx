@@ -1,5 +1,5 @@
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,18 +20,35 @@ interface WorkflowDispatchPanelProps {
 export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflowName }: WorkflowDispatchPanelProps) => {
   const { toast } = useToast();
   const [workflowInputs, setWorkflowInputs] = useState<Record<string, string>>({});
+  const [isOpen, setIsOpen] = useState(false);
 
-  const { data: workflowDispatch } = useQuery({
+  const { data: workflowDispatch, isLoading } = useQuery({
     queryKey: ["workflow-dispatch", selectedRepo, workflowId],
     queryFn: async () => {
       const github = new GitHubService(token);
       return github.getWorkflowDispatch(selectedRepo, workflowId);
     },
-    enabled: !!workflowId,
+    enabled: !!workflowId && isOpen,
   });
 
   const handleWorkflowDispatch = async () => {
     try {
+      // Validate required fields
+      if (workflowDispatch?.inputs) {
+        const missingRequired = Object.entries(workflowDispatch.inputs)
+          .filter(([, input]) => input.required && !workflowInputs[input.name])
+          .map(([, input]) => input.name);
+
+        if (missingRequired.length > 0) {
+          toast({
+            title: "Missing Required Fields",
+            description: `Please fill in: ${missingRequired.join(', ')}`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       const github = new GitHubService(token);
       await github.triggerWorkflow(selectedRepo, workflowId, workflowInputs);
       
@@ -41,7 +58,9 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
       });
       
       setWorkflowInputs({});
+      setIsOpen(false);
     } catch (error) {
+      console.error('Error triggering workflow:', error);
       toast({
         title: "Error",
         description: "Failed to trigger workflow",
@@ -57,7 +76,7 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
           value={workflowInputs[name] || ''}
           onValueChange={(value) => setWorkflowInputs(prev => ({ ...prev, [name]: value }))}
         >
-          <SelectTrigger>
+          <SelectTrigger className="w-full">
             <SelectValue placeholder={input.default || `Select ${name}`} />
           </SelectTrigger>
           <SelectContent>
@@ -77,7 +96,7 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
           value={workflowInputs[name] || ''}
           onValueChange={(value) => setWorkflowInputs(prev => ({ ...prev, [name]: value }))}
         >
-          <SelectTrigger>
+          <SelectTrigger className="w-full">
             <SelectValue placeholder={input.default || 'Select true/false'} />
           </SelectTrigger>
           <SelectContent>
@@ -109,7 +128,7 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
         <h3 className="text-lg font-semibold text-gray-900">
           {workflowName}
         </h3>
-        <Dialog>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
             <Button variant="default" size="sm">
               <Play className="h-4 w-4 mr-1" />
@@ -119,9 +138,16 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
           <DialogContent className="max-w-xl">
             <DialogHeader>
               <DialogTitle>Run workflow: {workflowName}</DialogTitle>
+              <DialogDescription>
+                Configure the workflow run parameters below.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
-              {workflowDispatch?.inputs ? (
+              {isLoading ? (
+                <div className="text-center py-4">
+                  <p className="text-sm text-gray-600">Loading workflow parameters...</p>
+                </div>
+              ) : workflowDispatch?.inputs && Object.keys(workflowDispatch.inputs).length > 0 ? (
                 <>
                   <div className="space-y-6">
                     {Object.entries(workflowDispatch.inputs).map(([name, input]) => (
@@ -131,15 +157,18 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
                           {input.required && <span className="text-red-500 ml-1">*</span>}
                         </Label>
                         {renderInput(name, input)}
-                        {input.type === 'choice' && (
+                        {input.type === 'choice' && input.options && (
                           <p className="text-xs text-gray-500 mt-1">
-                            Choose from: {input.options?.join(', ')}
+                            Choose from: {input.options.join(', ')}
                           </p>
                         )}
                       </div>
                     ))}
                   </div>
-                  <Button onClick={handleWorkflowDispatch} className="w-full mt-6 bg-green-600 hover:bg-green-700">
+                  <Button 
+                    onClick={handleWorkflowDispatch} 
+                    className="w-full mt-6 bg-green-600 hover:bg-green-700"
+                  >
                     Run workflow
                   </Button>
                 </>
@@ -148,7 +177,10 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
                   <p className="text-sm text-gray-600">
                     This workflow has no input parameters.
                   </p>
-                  <Button onClick={handleWorkflowDispatch} className="w-full bg-green-600 hover:bg-green-700">
+                  <Button 
+                    onClick={handleWorkflowDispatch} 
+                    className="w-full bg-green-600 hover:bg-green-700"
+                  >
                     Run workflow
                   </Button>
                 </div>
