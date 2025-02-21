@@ -54,84 +54,79 @@ export class GitHubService {
 
   async getWorkflowDispatch(repo: string, workflowId: number): Promise<WorkflowDispatch | null> {
     try {
-      // First get the workflow file path
       const workflow = await this.fetch<{ path: string }>(`/repos/${repo}/actions/workflows/${workflowId}`);
-      
-      // Get the raw workflow file content
       const content = await this.fetch<{ content: string }>(`/repos/${repo}/contents/${workflow.path}`);
       const decodedContent = atob(content.content);
       
       console.log('Raw workflow content:', decodedContent);
 
-      // Look for workflow_dispatch section with improved regex
-      const workflowDispatchMatch = decodedContent.match(/on:\s*(?:\n\s+)?workflow_dispatch:\s*(?:\n\s+inputs:\s*([\s\S]*?)(?=\n\w|\s*$))?/);
+      // Parse the YAML content more accurately
+      const workflowDispatchMatch = decodedContent.match(/on:[\s\S]*?workflow_dispatch:[\s\S]*?(?=\n\w|\s*$)/);
       if (!workflowDispatchMatch) {
-        console.log('No workflow_dispatch section found');
         return null;
       }
 
-      const inputsSection = workflowDispatchMatch[1];
-      if (!inputsSection) {
-        console.log('No inputs section found');
-        return { inputs: {} };
-      }
-
-      console.log('Found inputs section:', inputsSection);
+      const workflowDispatchContent = workflowDispatchMatch[0];
+      console.log('Workflow dispatch content:', workflowDispatchContent);
 
       const inputs: Record<string, WorkflowDispatchInput> = {};
-      // Improved regex to capture the entire input block
-      const inputBlockRegex = /^\s*(\w+):\s*(?:\n\s+(.+(?:\n\s+.+)*)|(.+))$/gm;
-      let match;
+      
+      // Extract inputs section
+      const inputsMatch = workflowDispatchContent.match(/inputs:([\s\S]*?)(?=\n\w|\s*$)/);
+      if (!inputsMatch) {
+        return { inputs };
+      }
 
-      while ((match = inputBlockRegex.exec(inputsSection)) !== null) {
-        const [, name, multiLineDetails, singleLineDetails] = match;
-        const details = (multiLineDetails || singleLineDetails || '').trim();
-        console.log(`Processing input "${name}":`, details);
+      const inputsContent = inputsMatch[1];
+      const inputBlocks = inputsContent.match(/\s+\w+:[\s\S]*?(?=\s+\w+:|\s*$)/g) || [];
 
+      for (const block of inputBlocks) {
+        const nameMatch = block.match(/\s+(\w+):/);
+        if (!nameMatch) continue;
+
+        const name = nameMatch[1];
         const input: WorkflowDispatchInput = {
           name,
           type: 'string',
-          required: false,
+          required: false
         };
 
-        // Parse description (handling both single and double quotes)
-        const descriptionMatch = details.match(/description:\s*(['"])(.*?)\1/);
-        if (descriptionMatch) {
-          input.description = descriptionMatch[2].trim();
+        // Parse description
+        const descMatch = block.match(/description:\s*['"](.+?)['"]/);
+        if (descMatch) {
+          input.description = descMatch[1];
         }
 
         // Parse required
-        input.required = /required:\s*true/i.test(details);
+        input.required = /required:\s*true/.test(block);
 
         // Parse type
-        const typeMatch = details.match(/type:\s*(\w+)/);
+        const typeMatch = block.match(/type:\s*(\w+)/);
         if (typeMatch) {
           input.type = typeMatch[1].toLowerCase() as WorkflowDispatchInput['type'];
         }
 
-        // Parse default value (handling both single and double quotes)
-        const defaultMatch = details.match(/default:\s*(['"]?)([^'"]*)\1/);
+        // Parse default
+        const defaultMatch = block.match(/default:\s*['"]?([^'"}\n]+)['"]?/);
         if (defaultMatch) {
-          input.default = defaultMatch[2].trim();
+          input.default = defaultMatch[1];
         }
 
         // Parse options for choice type
-        const optionsMatch = details.match(/options:\s*\[(.*?)\]/);
+        const optionsMatch = block.match(/options:\s*\[(.*?)\]/);
         if (optionsMatch) {
           input.options = optionsMatch[1]
             .split(',')
             .map(option => option.trim().replace(/^['"]|['"]$/g, ''));
-          console.log(`Found options for ${name}:`, input.options);
         }
 
         inputs[name] = input;
-        console.log(`Processed input complete:`, input);
       }
 
-      console.log('Final parsed inputs:', inputs);
+      console.log('Parsed inputs:', inputs);
       return { inputs };
     } catch (error) {
-      console.error('Error fetching workflow dispatch:', error);
+      console.error('Error parsing workflow dispatch:', error);
       return null;
     }
   }

@@ -1,7 +1,6 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Play } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -19,17 +18,26 @@ interface WorkflowDispatchPanelProps {
 
 export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflowName }: WorkflowDispatchPanelProps) => {
   const { toast } = useToast();
-  const [workflowInputs, setWorkflowInputs] = useState<Record<string, string>>({});
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState("");
+  const [workflowInputs, setWorkflowInputs] = useState<Record<string, string>>({});
+
+  const { data: branches } = useQuery({
+    queryKey: ["branches", selectedRepo],
+    queryFn: async () => {
+      const github = new GitHubService(token);
+      return github.getBranches(selectedRepo);
+    },
+    enabled: !!selectedRepo && isOpen,
+  });
 
   const { data: workflowDispatch, isLoading } = useQuery({
     queryKey: ["workflow-dispatch", selectedRepo, workflowId],
     queryFn: async () => {
       const github = new GitHubService(token);
       const result = await github.getWorkflowDispatch(selectedRepo, workflowId);
-      console.log('Fetched workflow dispatch data:', result);
       
-      // Initialize inputs with default values
+      // Initialize default values if they exist
       if (result?.inputs) {
         const defaultInputs = Object.entries(result.inputs).reduce((acc, [name, input]) => {
           if (input.default) {
@@ -45,13 +53,22 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
     enabled: !!workflowId && isOpen,
   });
 
-  const handleWorkflowDispatch = async () => {
+  const handleSubmit = async () => {
     try {
+      if (!selectedBranch) {
+        toast({
+          title: "Branch Required",
+          description: "Please select a branch to run the workflow",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Validate required fields
       if (workflowDispatch?.inputs) {
         const missingRequired = Object.entries(workflowDispatch.inputs)
-          .filter(([, input]) => input.required && !workflowInputs[input.name])
-          .map(([, input]) => input.name);
+          .filter(([name, input]) => input.required && !workflowInputs[name])
+          .map(([name]) => name);
 
         if (missingRequired.length > 0) {
           toast({
@@ -83,59 +100,6 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
     }
   };
 
-  const renderInput = (name: string, input: any) => {
-    if (input.type === 'choice' && input.options) {
-      return (
-        <Select
-          value={workflowInputs[name] || input.default || ''}
-          onValueChange={(value) => setWorkflowInputs(prev => ({ ...prev, [name]: value }))}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={`Select ${name}`} />
-          </SelectTrigger>
-          <SelectContent>
-            {input.options.map((option: string) => (
-              <SelectItem key={option} value={option}>
-                {option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      );
-    }
-
-    if (input.type === 'boolean') {
-      return (
-        <Select
-          value={workflowInputs[name] || input.default || ''}
-          onValueChange={(value) => setWorkflowInputs(prev => ({ ...prev, [name]: value }))}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select true/false" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="true">true</SelectItem>
-            <SelectItem value="false">false</SelectItem>
-          </SelectContent>
-        </Select>
-      );
-    }
-
-    return (
-      <Input
-        id={name}
-        type={input.type === 'number' ? 'number' : 'text'}
-        placeholder={input.default || ''}
-        value={workflowInputs[name] || ''}
-        onChange={(e) => setWorkflowInputs(prev => ({
-          ...prev,
-          [name]: e.target.value
-        }))}
-        required={input.required}
-      />
-    );
-  };
-
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
       <div className="flex items-center justify-between mb-4">
@@ -161,39 +125,58 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
                 <div className="text-center py-4">
                   <p className="text-sm text-gray-600">Loading workflow parameters...</p>
                 </div>
-              ) : workflowDispatch?.inputs && Object.keys(workflowDispatch.inputs).length > 0 ? (
-                <>
-                  <div className="space-y-6">
-                    {Object.entries(workflowDispatch.inputs).map(([name, input]) => (
-                      <div key={name} className="space-y-2">
-                        <Label htmlFor={name} className="flex items-center text-sm font-medium">
-                          {input.description || name}
-                          {input.required && <span className="text-red-500 ml-1">*</span>}
-                        </Label>
-                        {renderInput(name, input)}
-                        {input.type === 'choice' && input.options && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            Choose from: {input.options.join(', ')}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <Button 
-                    onClick={handleWorkflowDispatch} 
-                    className="w-full mt-6 bg-green-600 hover:bg-green-700"
-                  >
-                    Run workflow
-                  </Button>
-                </>
               ) : (
-                <div className="space-y-4">
-                  <p className="text-sm text-gray-600">
-                    This workflow has no input parameters.
-                  </p>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <Label className="flex items-center text-sm font-medium">
+                      Use workflow from
+                      <span className="text-red-500 ml-1">*</span>
+                    </Label>
+                    <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches?.map((branch) => (
+                          <SelectItem key={branch.name} value={branch.name}>
+                            Branch: {branch.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {workflowDispatch?.inputs && Object.entries(workflowDispatch.inputs).map(([name, input]) => (
+                    <div key={name} className="space-y-2">
+                      <Label className="flex items-center text-sm font-medium">
+                        {input.description || name}
+                        {input.required && <span className="text-red-500 ml-1">*</span>}
+                      </Label>
+                      <Select 
+                        value={workflowInputs[name] || ''} 
+                        onValueChange={(value) => setWorkflowInputs(prev => ({ ...prev, [name]: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={`Select ${name.toLowerCase()}`} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {input.options?.map((option) => (
+                            <SelectItem key={option} value={option}>
+                              {option}
+                            </SelectItem>
+                          )) || (
+                            <SelectItem value={input.default || ''}>
+                              {input.default || `Enter ${name.toLowerCase()}`}
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+
                   <Button 
-                    onClick={handleWorkflowDispatch} 
-                    className="w-full bg-green-600 hover:bg-green-700"
+                    onClick={handleSubmit} 
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
                   >
                     Run workflow
                   </Button>
