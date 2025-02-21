@@ -2,6 +2,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Play } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { GitHubService } from "@/services/github";
@@ -25,8 +26,11 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
   const { data: branches } = useQuery({
     queryKey: ["branches", selectedRepo],
     queryFn: async () => {
+      console.log('Fetching branches for:', selectedRepo);
       const github = new GitHubService(token);
-      return github.getBranches(selectedRepo);
+      const branches = await github.getBranches(selectedRepo);
+      console.log('Fetched branches:', branches);
+      return branches;
     },
     enabled: !!selectedRepo && isOpen,
   });
@@ -34,10 +38,12 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
   const { data: workflowDispatch, isLoading } = useQuery({
     queryKey: ["workflow-dispatch", selectedRepo, workflowId],
     queryFn: async () => {
+      console.log('Fetching workflow dispatch for:', { selectedRepo, workflowId });
       const github = new GitHubService(token);
       const result = await github.getWorkflowDispatch(selectedRepo, workflowId);
+      console.log('Fetched workflow dispatch:', result);
       
-      // Initialize default values if they exist
+      // Initialize default values
       if (result?.inputs) {
         const defaultInputs = Object.entries(result.inputs).reduce((acc, [name, input]) => {
           if (input.default) {
@@ -64,7 +70,6 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
         return;
       }
 
-      // Validate required fields
       if (workflowDispatch?.inputs) {
         const missingRequired = Object.entries(workflowDispatch.inputs)
           .filter(([name, input]) => input.required && !workflowInputs[name])
@@ -81,7 +86,10 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
       }
 
       const github = new GitHubService(token);
-      await github.triggerWorkflow(selectedRepo, workflowId, workflowInputs);
+      await github.triggerWorkflow(selectedRepo, workflowId, {
+        ...workflowInputs,
+        ref: selectedBranch,
+      });
       
       toast({
         title: "Workflow Triggered",
@@ -98,6 +106,38 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
         variant: "destructive",
       });
     }
+  };
+
+  const renderInput = (name: string, input: any) => {
+    if (input.type === 'choice' && input.options) {
+      return (
+        <Select
+          value={workflowInputs[name] || ''}
+          onValueChange={(value) => setWorkflowInputs(prev => ({ ...prev, [name]: value }))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder={`Select ${name}`} />
+          </SelectTrigger>
+          <SelectContent>
+            {input.options.map((option: string) => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    return (
+      <Input
+        type={input.type === 'number' ? 'number' : 'text'}
+        placeholder={input.default || `Enter ${name}`}
+        value={workflowInputs[name] || ''}
+        onChange={(e) => setWorkflowInputs(prev => ({ ...prev, [name]: e.target.value }))}
+        required={input.required}
+      />
+    );
   };
 
   return (
@@ -139,7 +179,7 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
                       <SelectContent>
                         {branches?.map((branch) => (
                           <SelectItem key={branch.name} value={branch.name}>
-                            Branch: {branch.name}
+                            {branch.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -152,25 +192,7 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
                         {input.description || name}
                         {input.required && <span className="text-red-500 ml-1">*</span>}
                       </Label>
-                      <Select 
-                        value={workflowInputs[name] || ''} 
-                        onValueChange={(value) => setWorkflowInputs(prev => ({ ...prev, [name]: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={`Select ${name.toLowerCase()}`} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {input.options?.map((option) => (
-                            <SelectItem key={option} value={option}>
-                              {option}
-                            </SelectItem>
-                          )) || (
-                            <SelectItem value={input.default || ''}>
-                              {input.default || `Enter ${name.toLowerCase()}`}
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
+                      {renderInput(name, input)}
                     </div>
                   ))}
 
