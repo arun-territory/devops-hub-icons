@@ -43,7 +43,6 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
       const result = await github.getWorkflowDispatch(selectedRepo, workflowId);
       console.log('Fetched workflow dispatch:', result);
       
-      // Initialize default values
       if (result?.inputs) {
         const defaultInputs = Object.entries(result.inputs).reduce((acc, [name, input]) => {
           if (input.default) {
@@ -109,7 +108,20 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
   };
 
   const renderInput = (name: string, input: any) => {
-    if (input.type === 'choice' && input.options) {
+    // Always use Select for inputs with options or boolean type
+    if ((input.type === 'choice' && input.options) || input.type === 'boolean') {
+      let options = input.options;
+      
+      // If it's a boolean type, provide true/false options
+      if (input.type === 'boolean') {
+        options = ['true', 'false'];
+      }
+      
+      // If no options are provided but there's a default value, create a single option
+      if (!options && input.default) {
+        options = [input.default];
+      }
+
       return (
         <Select
           value={workflowInputs[name] || ''}
@@ -119,9 +131,42 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
             <SelectValue placeholder={`Select ${name}`} />
           </SelectTrigger>
           <SelectContent>
-            {input.options.map((option: string) => (
+            {options?.map((option: string) => (
               <SelectItem key={option} value={option}>
                 {option}
+              </SelectItem>
+            ))}
+            {/* If it's a choice type but no options provided, show default as option */}
+            {!options && input.default && (
+              <SelectItem value={input.default}>
+                {input.default}
+              </SelectItem>
+            )}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    // For environment type, we could potentially fetch available environments
+    if (input.type === 'environment') {
+      return (
+        <Select
+          value={workflowInputs[name] || ''}
+          onValueChange={(value) => setWorkflowInputs(prev => ({ ...prev, [name]: value }))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder={`Select ${name}`} />
+          </SelectTrigger>
+          <SelectContent>
+            {input.default && (
+              <SelectItem value={input.default}>
+                {input.default}
+              </SelectItem>
+            )}
+            {/* Common environment names */}
+            {['production', 'staging', 'development'].map((env) => (
+              <SelectItem key={env} value={env}>
+                {env}
               </SelectItem>
             ))}
           </SelectContent>
@@ -129,9 +174,26 @@ export const WorkflowDispatchPanel = ({ selectedRepo, token, workflowId, workflo
       );
     }
 
+    // For number type, show a range if min/max are provided
+    if (input.type === 'number') {
+      return (
+        <Input
+          type="number"
+          min={input.minimum}
+          max={input.maximum}
+          step={input.step || 1}
+          placeholder={input.default || `Enter ${name}`}
+          value={workflowInputs[name] || ''}
+          onChange={(e) => setWorkflowInputs(prev => ({ ...prev, [name]: e.target.value }))}
+          required={input.required}
+        />
+      );
+    }
+
+    // Default to text input with default value as placeholder
     return (
       <Input
-        type={input.type === 'number' ? 'number' : 'text'}
+        type="text"
         placeholder={input.default || `Enter ${name}`}
         value={workflowInputs[name] || ''}
         onChange={(e) => setWorkflowInputs(prev => ({ ...prev, [name]: e.target.value }))}
